@@ -12,6 +12,9 @@ set (CMAKE_C_STANDARD 17)# Using C17
 set (CMAKE_C_EXTENSIONS OFF)
 set (CMAKE_C_STANDARD_REQUIRED ON)
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration") # so that "strdup" doesn't cause an error on GCC
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-int-conversion") # so that int can be implicitly converted to char* on GCC
+
 set (CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")# Using /MD and /MDd on MSVC
 
 include(GNUInstallDirs)
@@ -143,7 +146,10 @@ if (${LAME_MP3X})
 	add_executable (mp3x ${SRC_PATH}/config.h ${COMMON_SRC} ${MPX_SRC} ${RC_SRC})
 endif (${LAME_MP3X})
 add_executable (mp3rtp ${SRC_PATH}/config.h ${COMMON_SRC} ${MP3RTP_SRC} ${RC_SRC})
-add_library (lame_enc SHARED ${SRC_PATH}/config.h ${DLL_SRC} ${RC_SRC})
+# DLL is not supported on GNU/Linux
+if (WIN32)
+	add_library (lame_enc SHARED ${SRC_PATH}/config.h ${DLL_SRC} ${RC_SRC})
+endif (WIN32)
 add_library (mp3lame SHARED ${SRC_PATH}/config.h ${DLL_DEF} ${SRC_PATH}/libmp3lame/version.c)
 add_library (mp3lame-static STATIC ${LAMELIB_SRC} ${MPGLIB_SRC})
 if (${LAME_ASM})
@@ -168,7 +174,10 @@ if (${LAME_MP3X})
 	target_include_directories (mp3x PRIVATE ${SRC_INC})
 endif (${LAME_MP3X})
 target_include_directories (mp3rtp PRIVATE ${SRC_INC})
-target_include_directories (lame_enc PRIVATE ${SRC_INC})
+# DLL is not supported on GNU/Linux
+if (WIN32)
+	target_include_directories (lame_enc PRIVATE ${SRC_INC})
+endif (WIN32)
 
 if (${LAME_ASM})
 	target_include_directories (lame_asm PRIVATE ${ASM_INC})
@@ -201,7 +210,10 @@ if (${LAME_MP3X})
 	target_compile_definitions (mp3x PUBLIC ${LAME_MACRO})
 endif (${LAME_MP3X})
 target_compile_definitions (mp3rtp PUBLIC ${LAME_MACRO})
-target_compile_definitions (lame_enc PUBLIC ${LAME_MACRO})
+# DLL is not supported on GNU/Linux
+if (WIN32)
+	target_compile_definitions (lame_enc PUBLIC ${LAME_MACRO})
+endif (WIN32)
 target_compile_definitions (mp3lame PUBLIC ${LAME_MACRO})
 target_compile_definitions (mp3lame-static PUBLIC ${LAME_MACRO})
 
@@ -210,9 +222,15 @@ if (${LAME_ASM} AND WIN32)
 endif (${LAME_ASM} AND WIN32)
 
 # Compile Settings
-set_target_properties (lame mp3rtp lame_enc mp3lame mp3lame-static
+set_target_properties (lame mp3rtp mp3lame mp3lame-static
 	PROPERTIES POSITION_INDEPENDENT_CODE ON
 )
+# lame_enc is only for Windows
+if (WIN32)
+	set_target_properties (lame_enc
+		PROPERTIES POSITION_INDEPENDENT_CODE ON
+	)
+endif(WIN32)
 if (${LAME_MP3X})
 	set_target_properties (mp3x
 	PROPERTIES POSITION_INDEPENDENT_CODE ON
@@ -235,13 +253,18 @@ if (WIN32)
 	set (WSOCK32_LIB wsock32)# Windows
 	set (USER32_LIB user32)# Windows
 endif (WIN32)
+if (NOT WIN32)
+	set (MATH_LIB m) # On Linux GCC it doesn't link the math library by default
+endif (NOT WIN32)
 
-target_link_libraries (lame PRIVATE mp3lame-static ${SNDFILE_LIB} ${ADDL_LIB})
+target_link_libraries (lame PRIVATE mp3lame-static ${SNDFILE_LIB} ${ADDL_LIB} ${MATH_LIB})
 if (${LAME_MP3X})
-	target_link_libraries (mp3x PRIVATE mp3lame-static ${SNDFILE_LIB} ${ADDL_LIB})
+	target_link_libraries (mp3x PRIVATE mp3lame-static ${SNDFILE_LIB} ${ADDL_LIB} ${MATH_LIB})
 endif (${LAME_MP3X})
-target_link_libraries (mp3rtp PRIVATE mp3lame-static ${SNDFILE_LIB} ${ADDL_LIB} ${WSOCK32_LIB})
-target_link_libraries (lame_enc PRIVATE mp3lame-static ${ADDL_LIB} ${USER32_LIB})
+target_link_libraries (mp3rtp PRIVATE mp3lame-static ${SNDFILE_LIB} ${ADDL_LIB} ${WSOCK32_LIB} ${MATH_LIB})
+if (WIN32) # Windows-only library
+	target_link_libraries (lame_enc PRIVATE mp3lame-static ${ADDL_LIB} ${USER32_LIB})
+endif (WIN32)
 target_link_libraries (mp3lame PRIVATE mp3lame-static)
 
 if (${LAME_ASM})
@@ -256,12 +279,20 @@ if (LAME_VCPKG_TOOLS_HINT)
 else ()
 	set(TOOLS_DIR ${CMAKE_INSTALL_BINDIR})
 endif ()
-install (TARGETS lame mp3rtp lame_enc mp3lame mp3lame-static
+install (TARGETS lame mp3rtp mp3lame mp3lame-static
 	EXPORT ${LAME_INSTALL_NAME}Targets
 	RUNTIME DESTINATION "${TOOLS_DIR}" OPTIONAL
 	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" OPTIONAL
 	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" OPTIONAL
 )
+if (WIN32) # Install DLL only on Windows
+	install (TARGETS lame_enc
+		EXPORT ${LAME_INSTALL_NAME}Targets
+		RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" OPTIONAL
+		LIBRARY DESTINATION "${CMAKE_INSTALL_BINDIR}" OPTIONAL
+		ARCHIVE DESTINATION "${CMAKE_INSTALL_BINDIR}" OPTIONAL
+	)
+endif (WIN32)
 if (${LAME_MP3X})
 	install (TARGETS mp3x
 		EXPORT ${LAME_INSTALL_NAME}Targets
