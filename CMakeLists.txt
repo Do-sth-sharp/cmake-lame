@@ -12,9 +12,6 @@ set (CMAKE_C_STANDARD 17)# Using C17
 set (CMAKE_C_EXTENSIONS OFF)
 set (CMAKE_C_STANDARD_REQUIRED ON)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration") # so that "strdup" doesn't cause an error on GCC
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-int-conversion") # so that int can be implicitly converted to char* on GCC
-
 set (CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")# Using /MD and /MDd on MSVC
 
 include(GNUInstallDirs)
@@ -141,20 +138,34 @@ foreach (ASM_FILE ${ASM_SRC})
 	list (APPEND ASM_SRC_TEMP ${ASM_FILE_OUT})
 endforeach (ASM_FILE ${ASM_SRC})
 
+set (LAME_TARGET_LIST "")
 add_executable (lame ${SRC_PATH}/config.h ${COMMON_SRC} ${LAME_SRC} ${RC_SRC})
+list (APPEND LAME_TARGET_LIST lame)
 if (${LAME_MP3X})
 	add_executable (mp3x ${SRC_PATH}/config.h ${COMMON_SRC} ${MPX_SRC} ${RC_SRC})
+	list (APPEND LAME_TARGET_LIST mp3x)
 endif (${LAME_MP3X})
 add_executable (mp3rtp ${SRC_PATH}/config.h ${COMMON_SRC} ${MP3RTP_SRC} ${RC_SRC})
+list (APPEND LAME_TARGET_LIST mp3rtp)
 # DLL is not supported on GNU/Linux
 if (WIN32)
 	add_library (lame_enc SHARED ${SRC_PATH}/config.h ${DLL_SRC} ${RC_SRC})
+	list (APPEND LAME_TARGET_LIST lame_enc)
 endif (WIN32)
 add_library (mp3lame SHARED ${SRC_PATH}/config.h ${DLL_DEF} ${SRC_PATH}/libmp3lame/version.c)
+list (APPEND LAME_TARGET_LIST mp3lame)
 add_library (mp3lame-static STATIC ${LAMELIB_SRC} ${MPGLIB_SRC})
+list (APPEND LAME_TARGET_LIST mp3lame-static)
 if (${LAME_ASM})
 	add_library (lame_asm STATIC ${ASM_SRC_TEMP})
+	list (APPEND LAME_TARGET_LIST lame_asm)
 endif (${LAME_ASM})
+
+foreach (TARGET ${LAME_TARGET_LIST})
+	target_compile_options (${TARGET} PRIVATE
+		-Wno-implicit-function-declaration
+		-Wno-int-conversion)
+endforeach ()
 
 # Target Includes
 foreach (ITEM ${SRC_INC})
