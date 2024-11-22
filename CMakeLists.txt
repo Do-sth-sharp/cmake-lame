@@ -12,8 +12,11 @@ set (CMAKE_C_STANDARD 17)# Using C17
 set (CMAKE_C_EXTENSIONS OFF)
 set (CMAKE_C_STANDARD_REQUIRED ON)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration") # so that "strdup" doesn't cause an error on GCC
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-int-conversion") # so that int can be implicitly converted to char* on GCC
+set(ADDITIONAL_C_FLAGS "")
+if(NOT WIN32)
+	list (APPEND ADDITIONAL_C_FLAGS "-Wno-implicit-function-declaration") # so that "strdup" doesn't cause an error on GCC
+	list (APPEND ADDITIONAL_C_FLAGS "-Wno-int-conversion") # so that int can be implicitly converted to char* on GCC
+endif()
 
 set (CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")# Using /MD and /MDd on MSVC
 
@@ -237,8 +240,20 @@ if (${LAME_MP3X})
 )
 endif (${LAME_MP3X})
 
+target_compile_options (lame PRIVATE ${ADDITIONAL_C_FLAGS})
+if (${LAME_MP3X})
+target_compile_options (mp3x PRIVATE ${ADDITIONAL_C_FLAGS})
+endif (${LAME_MP3X})
+target_compile_options (mp3rtp PRIVATE ${ADDITIONAL_C_FLAGS})
+# DLL is not supported on GNU/Linux
+if (WIN32)
+	target_compile_options (lame_enc PRIVATE ${ADDITIONAL_C_FLAGS})
+endif (WIN32)
+target_compile_options (mp3lame PRIVATE ${ADDITIONAL_C_FLAGS})
+target_compile_options (mp3lame-static PRIVATE ${ADDITIONAL_C_FLAGS})
+
 if (${LAME_ASM} AND MSVC)
-	target_compile_options (lame_asm PRIVATE "-Sf")# MSVC
+	target_compile_options (lame_asm PRIVATE "-Sf" ${ADDITIONAL_C_FLAGS})# MSVC
 endif (${LAME_ASM} AND MSVC)
 
 # Link Libraries
