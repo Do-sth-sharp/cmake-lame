@@ -59,7 +59,7 @@ set (MP3RTP_SRC
 )
 
 set (DLL_SRC
-	${SRC_PATH}/dll/BladeMP3EncDll.c
+	${SRC_PATH}/Dll/BladeMP3EncDll.c
 )
 
 set (COMMON_SRC
