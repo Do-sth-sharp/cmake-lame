@@ -32,6 +32,8 @@
 lame-3.100/config.h
 [Oo]ut/**
 cmake-*/**
+build/**
+install/**
 
 # IDE Temp
 .vs/**
